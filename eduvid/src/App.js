@@ -1,103 +1,61 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
+import Calculator from './DesmosModule.js';
 
-class Calculator extends React.Component {
+class VideoModuleView extends React.Component {
   constructor(props) {
     super(props);
-    this.calculator = React.createRef();
-    this.updateListener = 0;
+    this.state = {moduleType: "calc", moduleEvents: {}};
+    this.lastStateStack = {};
+    this.classModule = React.createRef();
+    this.video = React.createRef();
+    if (!props.isTeacher) {
+      this.getRequestPromise().then((result) => JSON.parse(result)).then(events => this.setState({
+        moduleEvents: {calc: events}
+      }));
+    }
+  }
+
+  getRequestPromise() {
+    // TODO: load this, don't set it manually
+    return new Promise((resolve) => {
+      setTimeout(resolve.bind(this), 1000, `{"events":[{"timestamp":3508,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y"},"oldExp":{"type":"expression","id":"1t","color":"#c74440"}}]},{"timestamp":3680,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y="},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y"}}]},{"timestamp":4012,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x"},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y="}}]},{"timestamp":4397,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{ }"},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x"}}]},{"timestamp":4910,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{3}"},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{ }"}}]},{"timestamp":5454,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{3}+"},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{3}"}}]},{"timestamp":5776,"changes":[{"type":"changeExpr","exp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{3}+2"},"oldExp":{"type":"expression","id":"1t","color":"#c74440","latex":"y=x^{3}+"}}]}]}`);
+    })
+  }
+
+  getMainModule() {
+    if (this.state.moduleType === "calc") {
+      return <Calculator ref={this.classModule} isTeacher={this.props.isTeacher} eventList={this.state.moduleEvents.calc || []}/>;
+    } else if (this.state.moduleType === "blackboard") {
+      return <div ref={this.classModule}></div>;
+    }
+  }
+
+  changeModule(newModuleType) {
+    this.lastStateStack[this.state.moduleType] = this.classModule.current.getState();
+    this.setState({moduleType: newModuleType});
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.moduleType !== this.state.moduleType) {
+      if (typeof this.lastStateStack[this.state.moduleType] === "object") {
+        this.classModule.current.popState(this.lastStateStack[this.state.moduleType]);
+      }
+      this.classModule.current.updateVideoTime(this.video.current.currentTime * 1000);
+    }
   }
 
   render() {
     return (
         <div>
-          <div style={{width: 600, height: 400, margin: 'auto'}} ref={this.calculator}></div><br />
-          <p>
-          <button onClick={() => this.saveJSON()}>View recorded actions</button>
-          </p>
+          <video ref={this.video} src="https://www.w3schools.com/html/movie.mp4"
+                 type="video/mp4" controls onTimeUpdate={() => this.classModule.current.updateVideoTime(this.video.current.currentTime * 1000)}>
+            Your browser does not support video lol
+          </video>
+          {this.getMainModule()}
         </div>
     );
-  }
-
-  componentDidMount() {
-    let elt = this.calculator.current;
-    this.calculator = window.Desmos.GraphingCalculator(elt);
-    this.calculatorEvents = [];
-    this.oldCalculatorState = this.calculator.getState();
-    this.timelineStart = Date.now();
-    // this.calculator.observeEvent("change", () => {
-    this.updateListener = setInterval(() => {
-      let newState = this.calculator.getState();
-      let delta = this.computeDelta(this.oldCalculatorState, newState);
-      if (delta.length > 0) {
-        this.calculatorEvents.push({
-          timestamp: Date.now() - this.timelineStart,
-          changes: delta
-        });
-        console.log("Changes", delta);
-        this.oldCalculatorState = newState;
-      }
-    });
-  }
-
-  componentWillUnmount() {
-    clearInterval(this.updateListener);
-  }
-
-  saveJSON() {
-    console.log(JSON.stringify({events: this.calculatorEvents}));
-  }
-
-  replayEvents(events) {
-    this.calculator.setBlank();
-    for (let evList of events.events) {
-      setTimeout(() => {
-        console.log("Doing", evList);
-        for (let event of evList.changes) {
-          if (event.type === "resetState") {
-            this.calculator.setState(event.newState);
-          } else if (event.type === "graphChange") {
-            this.calculator.graph = event.newGraph;
-          } else if (event.type === "addExpr" || event.type === "changeExpr") {
-            this.calculator.setExpression(event.exp);
-          } else if (event.type === "deleteExpr") {
-            this.calculator.removeExpression(event.exp);
-          }
-        }
-      }, evList.timestamp);
-    }
-  }
-
-  computeDelta(oldCalcState, newCalcState) {
-    let changes = [];
-    // Check if viewport changed, gridlines etc.
-    let areGraphsEqual = JSON.stringify(oldCalcState.graph) == JSON.stringify(newCalcState.graph);
-    if (!areGraphsEqual) {
-      changes.push({type: "graphChange", newGraph: newCalcState.graph});
-    }
-    // Check if expressions were added or changed
-    let oldExp = oldCalcState.expressions.list, newExp = newCalcState.expressions.list;
-    let expMap = {};
-    for (let exp of oldExp) {
-      // {type: "expression", id: "1", color: "#c74440", latex: "y=x"}
-      expMap[exp.id] = {exp, deleted: true};
-    }
-    for (let exp of newExp) {
-      let cmp = expMap[exp.id];
-      if (typeof cmp !== "object") {
-        changes.push({type: "addExpr", exp});
-      } else {
-        cmp.deleted = false;
-        if (JSON.stringify(cmp.exp) !== JSON.stringify(exp)) {
-          changes.push({type: "changeExpr", exp});
-        }
-      }
-    }
-    for (let exp of oldExp) {
-      if (expMap[exp.id].deleted) changes.push({type: "deleteExpr", exp});
-    }
-    return changes;
   }
 }
 
@@ -118,7 +76,8 @@ function App() {
           {/*Learn React*/}
         {/*</a>*/}
       {/*</header>*/}
-      <Calculator/>
+      {/*<Calculator/>*/}
+      <VideoModuleView isTeacher={false}/>
     </div>
   );
 }
