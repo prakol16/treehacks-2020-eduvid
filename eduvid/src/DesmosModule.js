@@ -6,6 +6,7 @@ export default class Calculator extends ClassroomModule {
         super(props);
         this.calculatorRef = React.createRef();
         this.updateListener = 0;
+        this.hasViewChanged = false;
     }
 
     render() {
@@ -40,16 +41,33 @@ export default class Calculator extends ClassroomModule {
                     timestamp: Date.now() - this.timelineStart,
                     changes: delta
                 });
-                console.log("Changes", delta);
                 this.oldCalculatorState = newState;
             }
-        });
+        }, 30);
+    }
+
+    resetView() {
+        let viewport = this.oldViewport;
+        this.hasViewChanged = false;
+        this.calculator.setViewport([viewport.xmin, viewport.xmax, viewport.ymin, viewport.ymax]);
     }
 
     componentDidMount() {
         let elt = this.calculatorRef.current;
         this.calculator = window.Desmos.GraphingCalculator(elt);
         if (this.props.isTeacher) this.setupEventListener();
+        else {
+            this.oldViewport = this.calculator.getState().graph.viewport;
+            this.calculator.observeEvent("change", () => {
+                let newViewport = this.calculator.getState().graph.viewport;
+                if (!this.hasViewChanged && JSON.stringify(newViewport) !== JSON.stringify(this.oldViewport)) {
+                    this.hasViewChanged = true;
+                } else {
+                    this.oldViewport = newViewport;
+                    this.hasViewChanged = false;
+                }
+            });
+        }
     }
 
     componentWillUnmount() {
@@ -60,12 +78,22 @@ export default class Calculator extends ClassroomModule {
         console.log(JSON.stringify({events: this.calculatorEvents}));
     }
 
+    setGraphStateFromVideo(newGraph) {
+        let viewport = newGraph.viewport;
+        this.calculator.updateSettings(newGraph);
+        this.calculator.setDefaultState({graph: newGraph});
+        this.oldViewport = viewport;
+        if (!this.hasViewChanged) {
+            this.calculator.setViewport([viewport.xmin, viewport.xmax, viewport.ymin, viewport.ymax]);
+        }
+    }
+
     replayEvent(evList) {
         for (let event of evList.changes) {
             if (event.type === "resetState") {
                 this.calculator.setState(event.newState);
             } else if (event.type === "graphChange") {
-                this.calculator.graph = event.newGraph;
+                this.setGraphStateFromVideo(event.newGraph);
             } else if (event.type === "addExpr" || event.type === "changeExpr") {
                 this.calculator.setExpression(event.exp);
             } else if (event.type === "deleteExpr") {
@@ -79,7 +107,7 @@ export default class Calculator extends ClassroomModule {
             if (event.type === "resetState") {
                 this.calculator.setState(event.oldState);
             } else if (event.type === "graphChange") {
-                this.calculator.graph = event.oldGraph;
+                this.setGraphStateFromVideo(event.oldGraph);
             } else if (event.type === "changeExpr") {
                 this.calculator.setExpression(event.oldExp);
             } else if (event.type === "deleteExpr") {
