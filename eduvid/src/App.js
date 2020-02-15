@@ -21,12 +21,12 @@ class Calculator extends React.Component {
 
   componentDidMount() {
     let elt = this.calculator.current;
-    let calculator = window.Desmos.GraphingCalculator(elt);
+    this.calculator = window.Desmos.GraphingCalculator(elt);
     this.calculatorEvents = [];
-    this.oldCalculatorState = calculator.getState();
+    this.oldCalculatorState = this.calculator.getState();
     this.timelineStart = Date.now();
-    calculator.observeEvent("change", () => {
-      let newState = calculator.getState();
+    this.calculator.observeEvent("change", () => {
+      let newState = this.calculator.getState();
       let delta = this.computeDelta(this.oldCalculatorState, newState);
       this.calculatorEvents.push({
         timestamp: Date.now() - this.timelineStart,
@@ -38,13 +38,36 @@ class Calculator extends React.Component {
     });
   }
 
+  saveJSON() {
+    console.log(JSON.stringify({events: this.calculatorEvents}));
+  }
+
+  replayEvents(events) {
+    this.calculator.setBlank();
+    for (let evList of events.events) {
+      setTimeout(() => {
+        console.log("Doing", evList);
+        for (let event of evList.changes) {
+          if (event.type === "resetState") {
+            this.calculator.setState(event.newState);
+          } else if (event.type === "graphChange") {
+            this.calculator.graph = event.newGraph;
+          } else if (event.type === "addExpr" || event.type === "changeExpr") {
+            this.calculator.setExpression(event.exp);
+          } else if (event.type === "deleteExpr") {
+            this.calculator.removeExpression(event.exp);
+          }
+        }
+      }, evList.timestamp);
+    }
+  }
 
   computeDelta(oldCalcState, newCalcState) {
     let changes = [];
     // Check if viewport changed, gridlines etc.
     let areGraphsEqual = JSON.stringify(oldCalcState.graph) == JSON.stringify(newCalcState.graph);
     if (!areGraphsEqual) {
-      changes.push({type: "graphChange", newView: newCalcState.graph});
+      changes.push({type: "graphChange", newGraph: newCalcState.graph});
     }
     // Check if expressions were added or changed
     let oldExp = oldCalcState.expressions.list, newExp = newCalcState.expressions.list;
