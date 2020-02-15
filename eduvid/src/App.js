@@ -6,6 +6,7 @@ class Calculator extends React.Component {
   constructor(props) {
     super(props);
     this.calculator = React.createRef();
+    this.updateListener = 0;
   }
 
   render() {
@@ -13,7 +14,7 @@ class Calculator extends React.Component {
         <div>
           <div style={{width: 600, height: 400, margin: 'auto'}} ref={this.calculator}></div><br />
           <p>
-          <button>View recorded actions</button>
+          <button onClick={() => this.saveJSON()}>View recorded actions</button>
           </p>
         </div>
     );
@@ -25,17 +26,23 @@ class Calculator extends React.Component {
     this.calculatorEvents = [];
     this.oldCalculatorState = this.calculator.getState();
     this.timelineStart = Date.now();
-    this.calculator.observeEvent("change", () => {
+    // this.calculator.observeEvent("change", () => {
+    this.updateListener = setInterval(() => {
       let newState = this.calculator.getState();
       let delta = this.computeDelta(this.oldCalculatorState, newState);
-      this.calculatorEvents.push({
-        timestamp: Date.now() - this.timelineStart,
-        changes: delta
-      });
-      // console.log(this.oldCalculatorState, newState);
-      console.log(this.calculatorEvents);
-      this.oldCalculatorState = newState;
+      if (delta.length > 0) {
+        this.calculatorEvents.push({
+          timestamp: Date.now() - this.timelineStart,
+          changes: delta
+        });
+        console.log("Changes", delta);
+        this.oldCalculatorState = newState;
+      }
     });
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.updateListener);
   }
 
   saveJSON() {
