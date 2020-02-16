@@ -78,7 +78,9 @@ class VideoModuleView extends React.Component {
 
   getVideoURL() {
     if (!this.props.isTeacher && this.props.selectedLesson) {
-      storage.child(this.props.selectedLesson + '.webm').getDownloadURL().then(url => this.setState({url}));
+      storage.child(this.props.selectedLesson + '.webm').getDownloadURL().then(url => this.setState({url})).then(() => {
+        setTimeout(() => this.video.current.currentTime = 1e5, 1000);
+      });
       this.getRequestPromise().then(events => this.setState({
           moduleEvents: {calc: {events}}
       }));
@@ -112,7 +114,7 @@ class VideoModuleView extends React.Component {
     return (
         <div style={{display: 'inline-flex', position: 'relative', padding: 20}}>
           <div style={{display: !this.state.isViewFull || this.state.isViewVideo ? '' : 'none', margin: 10}}>
-            <video ref={this.video} src={this.state.url} preload='auto'
+            <video ref={this.video} src={this.state.url} preload="auto" loop onLoad={() => console.log("Video loaded!")}
                    width={this.state.isViewFull ? 1440 : 400} autoPlay={this.props.isTeacher}
                    muted={this.props.isTeacher} type={this.props.isTeacher ? "video/webm" : "video/mp4"} controls onTimeUpdate={() => this.classModule.current.updateVideoTime(this.video.current.currentTime * 1000)}>
               Your browser does not support video lol
