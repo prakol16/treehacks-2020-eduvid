@@ -28,6 +28,12 @@ export default class ClassroomModule extends React.Component {
         this.popModuleState(state.moduleState);
     }
 
+    componentDidUpdate(prevProps, prevState) {
+        if (prevProps.eventList !== this.props.eventList) {
+            this.eventIndex = 0;
+        }
+    }
+
     updateVideoTime(timestamp) {
         let eventsToPlay = this.props.eventList.events;
         if (eventsToPlay.length === 0) return;
