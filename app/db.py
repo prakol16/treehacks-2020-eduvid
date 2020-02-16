@@ -16,6 +16,12 @@ COLS = ('title', 'video_uri', 'video_path', 'metadata_uri', 'metadata_path')
 class DB:
     def __init__(self, database):
         self.database = database
+        try:
+            with sqlite3.connect(self.database) as conn:
+                c = conn.cursor()
+                c.execute('CREATE TABLE videos(title text primary key, video_uri text, video_path text, metadata_uri text, metadata_path text)')
+        except:
+            print('table exists')
 
     def add_video(self, title, video_uri, video_path, metadata_uri, metadata_path):
         with sqlite3.connect(self.database) as conn:
