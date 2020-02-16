@@ -1,14 +1,31 @@
 import React from 'react';
-import logo from './logo.svg';
+import * as firebase from 'firebase';
 import * as RecordRTC from 'recordrtc';
 import './App.css';
 import Calculator from './DesmosModule.js';
 import BlackboardModule from './BlackboardModule';
 
+var firebaseConfig = {
+  apiKey: "AIzaSyBEel9oOrtV4m9oFGBli4lNJZAcLslLzUk",
+  authDomain: "edumedia-552e9.firebaseapp.com",
+  databaseURL: "https://edumedia-552e9.firebaseio.com",
+  projectId: "edumedia-552e9",
+  storageBucket: "edumedia-552e9.appspot.com",
+  messagingSenderId: "106999035808",
+  appId: "1:106999035808:web:b69fcc1e15418db8b116c5",
+  measurementId: "G-C478GW9QCD"
+};
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+var database = firebase.database();
+var storage = firebase.storage().ref();
+
+var allVideos = database.ref("videoData").once("value");
+
 class VideoModuleView extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {moduleType: "calc", moduleEvents: {}, isViewFull: true, isViewVideo: true, recording: false};
+    this.state = {moduleType: "calc", moduleEvents: {}, isViewFull: true, isViewVideo: true, recording: false, url: ""};
     this.state.recordSrc = "";
     this.lastStateStack = {};
     this.classModule = React.createRef();
@@ -64,6 +81,14 @@ class VideoModuleView extends React.Component {
         });
         _this.recorder = recorder;
       });
+    } else {
+      this.getVideoURL();
+    }
+  }
+
+  getVideoURL() {
+    if (!this.props.isTeacher && this.props.selectedLesson) {
+      storage.child(this.props.selectedLesson + '.webm').getDownloadURL().then(url => this.setState({url}));
     }
   }
 
@@ -85,13 +110,17 @@ class VideoModuleView extends React.Component {
       }
       this.classModule.current.updateVideoTime(this.video.current.currentTime * 1000);
     }
+    if (prevProps.selectedLesson !== this.props.selectedLesson) {
+      this.getVideoURL();
+    }
   }
 
   render() {
     return (
         <div style={{display: 'inline-flex', position: 'relative', padding: 20}}>
           <div style={{display: !this.state.isViewFull || this.state.isViewVideo ? '' : 'none', margin: 10}}>
-            <video ref={this.video} src={this.props.isTeacher ? '' : "https://www.w3schools.com/html/movie.mp4"} width={this.state.isViewFull ? 1440 : 400} autoPlay={this.props.isTeacher}
+            <video ref={this.video} src={this.state.url}
+                   width={this.state.isViewFull ? 1440 : 400} autoPlay={this.props.isTeacher}
                    muted={this.props.isTeacher} type={this.props.isTeacher ? "video/webm" : "video/mp4"} controls onTimeUpdate={() => this.classModule.current.updateVideoTime(this.video.current.currentTime * 1000)}>
               Your browser does not support video lol
             </video>
@@ -99,7 +128,8 @@ class VideoModuleView extends React.Component {
           <div style={{display: this.state.isViewFull && this.state.isViewVideo ? 'none' : '', margin: 10}}>
           {this.getMainModule()}
           </div>
-          <img src={this.state.recording ? 'record_red.png' : 'record_black.png'} onClick={this.handleRecordingClick.bind(this)} className="nav-icon record-icon" />
+          {(!this.props.isTeacher ? null :
+          <img src={this.state.recording ? 'record_red.png' : 'record_black.png'} onClick={this.handleRecordingClick.bind(this)} className="nav-icon record-icon" />)}
           <img src='desmos_icon.png' onClick={() => this.setState(this.toggleViewVideo)} className="nav-icon nav-icon-top" />
           <img src='split_icon.png' onClick={() => this.setState(this.toggleViewFull)} className="nav-icon nav-icon-bottom" />
         </div>
@@ -117,28 +147,17 @@ class VideoModuleView extends React.Component {
         let blob = this.recorder.getBlob();
         console.log(blob);
         // console.log(this.classModule.current.saveJSON());
-        let data = new FormData();
-        data.append('data', blob);
+        // let data = new FormData();
+        // data.append('data', blob);
         let videoId = Math.random().toString().slice(2);
         let jsonEvents = this.classModule.current.saveJSON();
-        fetch("http://10.19.190.207:5000/video/vid-" + videoId, {
-          method: "POST",
-          body: data,
-          mode: 'no-cors'
-        }).then(() => {
-          fetch("http://10.19.190.207:5000/content/vid-" + videoId, {
-            method: "POST",
-            body: "", /*JSON.stringify({
-              filename: "toothpaste",
-              events: []
-            }),*/
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            mode: 'no-cors'
-          }).then(console.log);
-        });
-        console.log(jsonEvents);
+        // fetch("http://10.19.190.207:5000/video/vid-" + videoId, {
+        //   method: "POST",
+        //   body: data,
+        //   mode: 'no-cors'
+        // });
+        storage.child("vid-" + videoId + ".webm").put(blob).then(console.log);
+        database.ref("videoData").child("vid-" + videoId).set(jsonEvents.events);
         this.setState({recording: false});
       });
     }
@@ -153,40 +172,53 @@ class VideoModuleView extends React.Component {
   }
 }
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        Contact Us
-      </header>
-      <div className="App-top">
-        <span className="edumedia text-style-1">EDU</span>
-        <span className="edumedia">MEDIA</span>
-        <input type='search' className='search-bar' placeholder="Type text here..." />
-        <span className="App-top-text">Courses</span>
-        <span className="App-top-text">Instructors</span>
-        <span className="App-top-text">DesmosLive</span>
-      </div>
-      {/*<header className="App-header">*/}
-        {/*<img src={logo} className="App-logo" alt="logo" />*/}
-        {/*<p>*/}
-          {/*Edit <code>src/App.js</code> and save to reload.*/}
-        {/*</p>*/}
-        {/*<a*/}
-          {/*className="App-link"*/}
-          {/*href="https://reactjs.org"*/}
-          {/*target="_blank"*/}
-          {/*rel="noopener noreferrer"*/}
-        {/*>*/}
-          {/*Learn React*/}
-        {/*</a>*/}
-      {/*</header>*/}
-      {/*<Calculator/>*/}
-      <div style={{textAlign: 'center'}}>
-        <VideoModuleView isTeacher={!/student/.test(window.location.pathname)}/>
-      </div>
-    </div>
-  );
+class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {options: [], selectedVideo: ''};
+    allVideos.then(snapshot => {
+      let v = snapshot.val();
+      let options = [];
+      for (let key in v) {
+        if (v.hasOwnProperty(key)) {
+          options.push(
+              <option key={key} value={key}>{key.slice(0,10)}</option>
+          );
+        }
+      }
+      this.setState({options})
+    });
+  }
+
+  render() {
+    let isTeacher = !/student/.test(window.location.pathname);
+    return (
+        <div className="App">
+          <header className="App-header">
+            Contact Us
+          </header>
+          <div className="App-top">
+            <span className="edumedia text-style-1">EDU</span>
+            <span className="edumedia">MEDIA</span>
+            <input type='search' className='search-bar' placeholder="Type text here..."/>
+            <span className="App-top-text">Courses</span>
+            <span className="App-top-text">Instructors</span>
+            <span className="App-top-text">DesmosLive</span>
+          </div>
+          {isTeacher ? null : (
+              <div className="select-lesson">
+                <select onChange={(e) => this.setState({selectedVideo: e.target.value})}>
+                  <option value="" key="0">Choose video</option>
+                  {this.state.options}
+                </select>
+              </div>
+          )}
+          <div style={{textAlign: 'center'}}>
+            <VideoModuleView isTeacher={isTeacher} selectedLesson={this.state.selectedVideo}/>
+          </div>
+        </div>
+    );
+  }
 }
 
 export default App;
