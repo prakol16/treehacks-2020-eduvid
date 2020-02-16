@@ -1,5 +1,6 @@
 .App {
-  text-align: center;
+  box-shadow: 4px 4px 12px 0 rgba(0, 0, 0, 0.5);
+  background-color: #191c20;
 }
 
 .App-logo {
@@ -7,34 +8,87 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.App-top {
+  color: white;
+  margin: 10px 32px;
 }
 
+.edumedia {
+  width: 275px;
+  height: 44px;
+  font-family: Montserrat;
+  font-size: 36px;
+  font-weight: 900;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: 1.8px;
+  color: #ffffff;
+}
+
+.text-style-1 {
+  color: #00e7af;
+}
+
+.nav-icon {
+  position: fixed;
+  left: calc(99% - 66px);
+  width: 66px;
+  height: 66px;
+}
+
+.nav-icon-top {
+  top: 39%;
+}
+
+.nav-icon-bottom {
+  top: 50%;
+}
+
+.record-icon {
+  top: 28%;
+}
+
+
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+  background-color: #31373e;
+  padding: 12px 37px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  text-align: right;
+  font-size: small;
+  color: #00e7af;
+}
+
+.search-bar {
+  width: 433px;
+  height: 35px;
+  border-radius: 33px;
+  background-color: rgba(178, 178, 178, 0.41);
+  display: inline-block;
+  margin-left: 26%;
+  border: none;
+  padding: 0px 10px;
   color: white;
+  font-family: Montserrat;
 }
 
 .App-link {
   color: #61dafb;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.App-top-text {
+  width: 70px;
+  height: 17px;
+  font-family: Montserrat;
+  font-size: 14px;
+  font-weight: 500;
+  font-stretch: normal;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: 2.1px;
+  color: #ffffff;
+  margin-left: 5vw;
 }
 
 canvas {

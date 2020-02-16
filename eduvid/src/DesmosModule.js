@@ -11,12 +11,7 @@ export default class Calculator extends ClassroomModule {
 
     render() {
         return (
-            <div style={{display: 'inline-flex', margin: 20}}>
-                <div style={{width: 600, height: 400, margin: 'auto'}} ref={this.calculatorRef}></div><br />
-                <p>
-                    <button onClick={() => this.saveJSON()}>View recorded actions</button>
-                </p>
-            </div>
+            <div style={{width: this.props.width, height: this.props.height, margin: 'auto'}} ref={this.calculatorRef}></div>
         );
     }
 
@@ -75,7 +70,17 @@ export default class Calculator extends ClassroomModule {
     }
 
     saveJSON() {
-        console.log(JSON.stringify({events: this.calculatorEvents}));
+        let r = JSON.stringify({events: this.calculatorEvents});
+        // Why, oh why are we parsing JSON with regex?
+        // Especially given that there is built in parsing, native to JS for JSON parsing?!?!
+        // This is what too little sleep does to you
+        r = r.replace(/\"id\":\"/g, '"id":"t');
+        return JSON.parse(r);
+    }
+
+    resetJSON() {
+        this.calculatorEvents = [{timestamp: 0, changes: [{type: "resetState", newState: this.calculator.getState(), oldState: this.calculator.getState()}]}];
+        this.timelineStart = Date.now();
     }
 
     setGraphStateFromVideo(newGraph) {

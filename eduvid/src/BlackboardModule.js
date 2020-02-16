@@ -4,70 +4,88 @@ import ClassroomModule from './BaseClassroomModule';
 
 export default class BlackboardModule extends ClassroomModule {
     constructor(props) {
-        super(props);
+        super(props, true);
         this.sketch = React.createRef();
+        this.frontSketch = React.createRef();
         this.state = {tool: Tools.Pencil};
         this.oldObjects = [];
         this.updateInterval = -1;
         this.changeQueue = [];
+        this.oldState = {};
     }
 
     getModuleState() {
-        return this.sketch.current.toJSON();
+        return {back: !this.props.isTeacher && this.sketch.current.toJSON(), front: this.frontSketch.current.toJSON()};
     }
 
     popModuleState(state) {
-        this.sketch.current.fromJSON(state);
+        if (!this.props.isTeacher) this.sketch.current.fromJSON(state.back);
+        this.frontSketch.current.fromJSON(state.front);
     }
 
-    replayEvent(event) {
-        let evt = event.delta;
-        let state = this.sketch.current.toJSON();
-        if (evt.type === "modified") {
-            state.objects[evt.modified] = evt.newObj;
-        } else if (evt.type === "added") {
-            state.objects.splice(evt.i, 0, evt.newObj);
-        } else if (evt.type === "deleted") {
-            state.objects.splice(evt.deleted, 1);
-        } else {
-            console.error("Unkown event type", evt.type, evt);
-        }
-        this.sketch.current.fromJSON(state);
+    replayEvent(event, fullState) {
+        // let state = fullState.back;
+        // let evt = event.delta;
+        // if (evt.type === "modified") {
+        //     state.objects[evt.modified] = evt.newObj;
+        // } else if (evt.type === "added") {
+        //     state.objects.splice(evt.i, 0, evt.newObj);
+        // } else if (evt.type === "deleted") {
+        //     state.objects.splice(evt.deleted, 1);
+        // } else {
+        //     console.error("Unkown event type", evt.type, evt);
+        // }
+        // return fullState;
+        return {back: event.newState, front: fullState.front};
     }
 
     saveJSON() {
         console.log(JSON.stringify({events: this.changeQueue}));
     }
 
-    unreplayEvent(event) {
-        let evt = event.delta;
-        let state = this.sketch.current.toJSON();
-        if (evt.type === "modified") {
-            state.objects[evt.modified] = evt.oldObj;
-        } else if (evt.type === "added") {
-            state.objects.splice(evt.i, 1);
-        } else if (evt.type === "deleted") {
-            state.objects.splice(evt.deleted, 0, evt.oldObj);
-        } else {
-            console.error("Unkown event type", evt.type, evt);
-        }
-        this.sketch.current.fromJSON(state);
+    unreplayEvent(event, fullState) {
+        // let state = fullState.back;
+        // let evt = event.delta;
+        // if (evt.type === "modified") {
+        //     state.objects[evt.modified] = evt.oldObj;
+        // } else if (evt.type === "added") {
+        //     state.objects.splice(evt.i, 1);
+        // } else if (evt.type === "deleted") {
+        //     state.objects.splice(evt.deleted, 0, evt.oldObj);
+        // } else {
+        //     console.error("Unkown event type", evt.type, evt);
+        // }
+        // return fullState;
+        return {back: event.oldState, front: fullState.front};
     }
 
     render() {
         return (
-            <div style={{display: 'inline-flex'}}>
-                <SketchField width='600px'
+            <>
+            <div style={{position: 'relative', display: 'inline-block'}}>
+                {this.props.isTeacher ? null : (<SketchField width='600px'
                              height='400px'
-                             tool={this.state.tool}
                              lineColor='black'
                              lineWidth={3}
-                             ref={this.sketch} />
+                             ref={this.sketch}
+                             style={{position: 'absolute', top: 0, left: 0}}
+                             onKeyUp={(ev) => console.log(ev.key)}
+                            key="1" />)}
+                 <SketchField key="2"
+                            width='600px'
+                            height='400px'
+                            tool={this.state.tool}
+                            lineColor='black'
+                            lineWidth={3}
+                            ref={this.frontSketch}
+                            style={{position: 'absolute', top: 0, left: 0}} />
                 <br />
+            </div>
                 <button onClick={() => this.setState({tool: Tools.Select})}>Select</button>
                 <button onClick={() => this.setState({tool: Tools.Pencil})}>Draw Pencils</button>
                 <button onClick={() => this.setState({tool: Tools.Line})}>Draw Lines</button>
-            </div>
+                <button onClick={() => this.setState({tool: Tools.Pan})}>Pan</button>
+            </>
         );
     }
 
@@ -111,9 +129,15 @@ export default class BlackboardModule extends ClassroomModule {
     componentDidMount() {
         if (this.props.isTeacher) {
             this.timelineStart = Date.now();
+            this.oldState = this.frontSketch.current.toJSON();
             this.updateInterval = setInterval(() => {
-                let delta = this.computeDelta();
-                if (delta !== null) this.changeQueue.push({timestamp: Date.now() - this.timelineStart, delta});
+                // let delta = this.computeDelta();
+                // if (delta !== null) this.changeQueue.push({timestamp: Date.now() - this.timelineStart, delta});
+                let newState = this.frontSketch.current.toJSON();
+                if (JSON.stringify(newState) !== JSON.stringify(this.oldState)) {
+                    this.changeQueue.push({timestamp: Date.now()  - this.timelineStart, oldState: this.oldState, newState});
+                    this.oldState = newState;
+                }
             }, 30);
         }
     }
