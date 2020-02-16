@@ -1,15 +1,10 @@
-#!flask/bin/python
-
-from flask_restful import Api, Resource, reqparse
-from flask import Flask, request, send_from_directory
+from flask_restful import Resource, reqparse
+from flask import request, send_from_directory
 from pathlib import Path
+import sqlite3
 import json
 
-app = Flask(__name__, static_url_path="")
-api = Api(app)
-
-app.config['UPLOAD_FOLDER'] = 'data/recordings/'
-# app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+from app import app, api
 
 storage = Path('data')
 location = storage / 'recordings'
@@ -98,8 +93,4 @@ class EduVidList(Resource):
 
 api.add_resource(EduVidContent, '/content/<string:name>', endpoint='content')
 api.add_resource(EduVideo, '/video/<string:name>')
-api.add_resource(EduVidList, '/get')
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
+api.add_resource(EduVidList, '/list')
