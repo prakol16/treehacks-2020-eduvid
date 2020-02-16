@@ -1,66 +1,104 @@
 #!flask/bin/python
 
 from flask_restful import Api, Resource, reqparse
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from pathlib import Path
 import json
 
 app = Flask(__name__, static_url_path="")
 api = Api(app)
 
-app.config['UPLOAD_FOLDER'] = 'data'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['UPLOAD_FOLDER'] = 'data/recordings/'
+# app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+storage = Path('data')
+location = storage / 'recordings'
+location.mkdir(parents=True, exist_ok=True)
 
 
-class EduVidDesmos(Resource):
+class EduVidContent(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument('name', type=str, required=True,
-                                   help='Name this content',
+        self.reqparse.add_argument('filename', type=str, required=True,
+                                   help='Filename for file you have uploaded',
                                    location='json')
-        self.reqparse.add_argument('desmos', type=str, required=True,
-                                   help='Need content pls',
+        self.reqparse.add_argument('events', type=str, required=True,
+                                   help='Desmos series of actions',
                                    location='json')
 
-        self.storage = Path('data')
-        super(EduVidDesmos, self).__init__()
+        super(EduVidContent, self).__init__()
 
-    def get(self):
-        recordings = (item.stem for item in (self.storage / 'recordings').glob('*.json'))
-        return list(recordings), 200
+    def get(self, name):
+        path = (location / name).with_suffix('.json')
+        if not path.exists():
+            return 'content not found', 404
 
-    def post(self):
+        with path.open() as file:
+            metadata = file.read()
+
+        return metadata, 200
+
+    def post(self, name):
         args = self.reqparse.parse_args()
 
-        location = self.storage / 'recordings'
-        location.mkdir(parents=True, exist_ok=True)
-        desmos_location = (location / args['name']).with_suffix('.json')
+        if (location / name).with_suffix('.json').exists():
+            print('overwriting', name)
 
-        with desmos_location.open(mode='w') as file:
-            json.dump(args['content'], file)
+        metadata = {**args}
+        metadata['name'] = name
 
-        return f"data/recordings/{args['name']}.json saved", 200
+        fpath = Path(location / metadata['filename']).with_suffix('.webm')
+
+        if not fpath.exists():
+            return f"{metadata['filename']} is nonexistant!", 404
+
+        metadata['vidpath'] = str(Path(location / metadata['filename']))
+        metadata['viduri'] = f"video/{metadata['filename']}"
+
+        content_location = (location / name).with_suffix('.json')
+
+        with content_location.open(mode='w') as file:
+            json.dump(metadata, file)
+
+        return f'GET URI: /content/{name}', 201
 
 
-class EduVidUploader(Resource):
+class EduVideo(Resource):
     def __init__(self):
         pass
 
-    def post(self):
-        if 'file' not in request.files:
-            return 'file not found', 201
+    def get(self, name):
+        path = (location / name).with_suffix('.webm')
+        if not path.exists():
+            return 'nonexistant file', 201
 
-        f = request.files['file']
+        return send_from_directory(app.config['UPLOAD_FOLDER'], path.name, as_attachment=True), 200
+
+    def post(self, name):
+        if 'data' not in request.files:
+            return 'data file not found', 404
+        f = request.files['data']
 
         if f.filename == '':
-            return 'no file name', 201
+            return 'no file name', 400
 
-        f.save('data/recordings/', f.filename)
+        f.save(location / f'{name}.webm')
+
+        return f"success! {name}.webm", 201
 
 
-api.add_resource(EduVidDesmos, '/desmos', endpoint='desmos')
-api.add_resource(EduVidUploader, '/uploader', endpoint='video')
-api.add_resource(EduVidGetter, '/get', endpoint='video')
+class EduVidList(Resource):
+    def __init__(self):
+        pass
+
+    def get(self):
+        recordings = (item.stem for item in location.glob('*.json'))
+        return list(recordings), 200
+
+
+api.add_resource(EduVidContent, '/content/<string:name>', endpoint='content')
+api.add_resource(EduVideo, '/video/<string:name>')
+api.add_resource(EduVidList, '/get')
 
 
 if __name__ == '__main__':
