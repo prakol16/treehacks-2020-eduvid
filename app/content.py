@@ -1,21 +1,19 @@
 from flask_restful import Resource, reqparse
-from flask import request, send_from_directory
+from flask import request
 from pathlib import Path
-import sqlite3
 import json
+import time
 
-from app import app, api
+from app import app, db
 
-storage = Path('data')
-location = storage / 'recordings'
-location.mkdir(parents=True, exist_ok=True)
+location = Path(app.config['UPLOAD_FOLDER'])
 
 
 class EduVidContent(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument('filename', type=str, required=True,
-                                   help='Filename for file you have uploaded',
+                                   help='Name for video you have uploaded',
                                    location='json')
         self.reqparse.add_argument('events', type=str, required=True,
                                    help='Desmos series of actions',
@@ -24,73 +22,46 @@ class EduVidContent(Resource):
         super(EduVidContent, self).__init__()
 
     def get(self, name):
-        path = (location / name).with_suffix('.json')
-        if not path.exists():
-            return 'content not found', 404
+        vid = db.get_video(name)
 
-        with path.open() as file:
-            metadata = file.read()
+        if not vid:
+            return 'video not found', 404
+
+        with open(vid['metadata_path']) as file:
+            metadata = json.load(file)
+
+        metadata.update(vid)
 
         return metadata, 200
 
     def post(self, name):
-        args = self.reqparse.parse_args()
+        # print('detect')
+        # args = self.reqparse.parse_args()
+        args = request.get_json()
+        print(args)
 
-        if (location / name).with_suffix('.json').exists():
-            print('overwriting', name)
+        video_path = (location / args['filename']).with_suffix('.webm')
+        metadata_path = (location / name).with_suffix('.json')
 
-        metadata = {**args}
-        metadata['name'] = name
+        video_uri = f"video/{args['filename']}"
+        metadata_uri = f'/content/{name}'
 
-        fpath = Path(location / metadata['filename']).with_suffix('.webm')
+        if not video_path.exists():
+            return f"{args['filename']} is nonexistant!", 404
 
-        if not fpath.exists():
-            return f"{metadata['filename']} is nonexistant!", 404
+        db.add_video(
+            name,
+            video_uri, str(video_path),
+            metadata_uri, str(metadata_path),
+        )
 
-        metadata['vidpath'] = str(Path(location / metadata['filename']))
-        metadata['viduri'] = f"video/{metadata['filename']}"
+        metadata = {
+            'timestamp': int(time.time()),
+            'events': args['events'],
+            'title': name,
+        }
 
-        content_location = (location / name).with_suffix('.json')
-
-        with content_location.open(mode='w') as file:
+        with metadata_path.open(mode='w') as file:
             json.dump(metadata, file)
 
-        return f'GET URI: /content/{name}', 201
-
-
-class EduVideo(Resource):
-    def __init__(self):
-        pass
-
-    def get(self, name):
-        path = (location / name).with_suffix('.webm')
-        if not path.exists():
-            return 'nonexistant file', 201
-
-        return send_from_directory(app.config['UPLOAD_FOLDER'], path.name, as_attachment=True), 200
-
-    def post(self, name):
-        if 'data' not in request.files:
-            return 'data file not found', 404
-        f = request.files['data']
-
-        if f.filename == '':
-            return 'no file name', 400
-
-        f.save(location / f'{name}.webm')
-
-        return f"success! {name}.webm", 201
-
-
-class EduVidList(Resource):
-    def __init__(self):
-        pass
-
-    def get(self):
-        recordings = (item.stem for item in location.glob('*.json'))
-        return list(recordings), 200
-
-
-api.add_resource(EduVidContent, '/content/<string:name>', endpoint='content')
-api.add_resource(EduVideo, '/video/<string:name>')
-api.add_resource(EduVidList, '/list')
+        return f'GET URI: {metadata_uri}', 201
